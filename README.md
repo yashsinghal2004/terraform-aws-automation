@@ -111,7 +111,7 @@ The project provides the following output:
 - **AMI**: Uses a specific AMI ID - ensure it exists in your target region
 - **S3 Bucket**: Creates a bucket named "yash-singhal-terraform" - customize as needed
 
-## �� Customization
+## Customization
 
 ### Change VPC CIDR
 Modify the `variables.tf` file:
@@ -140,10 +140,12 @@ resource "aws_instance" "webserver1" {
 
 ## 🆘 Troubleshooting
 
-### Common Issues
-1. **AMI Not Found**: Ensure the AMI ID exists in your target region
-2. **Permission Denied**: Verify AWS credentials and IAM permissions
-3. **VPC Limit Exceeded**: Check your AWS VPC limits
+### ⚠️ Challenges I Faced
+1. **Route Table Not Enabling Internet Access**: Fixed by adding a default route (`0.0.0.0/0`) to the Internet Gateway and associating it with both subnets.  
+2. **Userdata Scripts Not Installing Apache**: Fixed by adding `apt update` and `apt install -y apache2` at the start of the script.  
+3. **Load Balancer Not Routing Traffic**: Fixed by attaching EC2 instances to the Target Group using `aws_lb_target_group_attachment` and verifying health checks.  
+4. **Terraform ALB Creation Order Issue**: Fixed by directly using subnet IDs inside the Load Balancer configuration so Terraform could manage dependencies correctly.  
+
 
 ### Debug Commands
 ```bash
@@ -163,14 +165,6 @@ terraform providers
 - [AWS VPC Documentation](https://docs.aws.amazon.com/vpc/)
 - [AWS Application Load Balancer](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/)
 
-## 🤝 Contributing
-
-Feel free to submit issues, feature requests, or pull requests to improve this project.
-
 ## 📄 License
 
-This project is open source and available under the [MIT License](LICENSE).
-
----
-
-**Note**: This infrastructure is designed for development and testing purposes. For production use, consider implementing additional security measures, monitoring, and backup strategies. 
+MIT License © 2025 [Yash Singhal]
