@@ -1,3 +1,11 @@
+data "aws_availability_zones" "available" {
+  state = "available"
+}
+
+data "aws_ssm_parameter" "al2_ami" {
+  name = "/aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64"
+}
+
 resource "aws_vpc" "myvpc" {
   cidr_block = var.cidr
 }
@@ -5,14 +13,14 @@ resource "aws_vpc" "myvpc" {
 resource "aws_subnet" "sub1" {
   vpc_id                  = aws_vpc.myvpc.id
   cidr_block              = "10.0.0.0/24"
-  availability_zone       = "us-east-1a"
+  availability_zone       = data.aws_availability_zones.available.names[0]
   map_public_ip_on_launch = true
 }
 
 resource "aws_subnet" "sub2" {
   vpc_id                  = aws_vpc.myvpc.id
   cidr_block              = "10.0.1.0/24"
-  availability_zone       = "us-east-1b"
+  availability_zone       = data.aws_availability_zones.available.names[1]
   map_public_ip_on_launch = true
 }
 
@@ -39,17 +47,42 @@ resource "aws_route_table_association" "rta2" {
   route_table_id = aws_route_table.RT.id
 }
 
-resource "aws_security_group" "webSg" {
-  name   = "web"
+resource "aws_security_group" "alb" {
+  name   = "alb-sg"
   vpc_id = aws_vpc.myvpc.id
 
   ingress {
-    description = "HTTP from VPC"
+    description = "HTTP from Internet"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "alb-sg"
+  }
+}
+
+resource "aws_security_group" "web" {
+  name   = "web"
+  vpc_id = aws_vpc.myvpc.id
+
+  ingress {
+    description     = "HTTP from ALB"
+    from_port       = 80
+    to_port         = 80
+    protocol        = "tcp"
+    security_groups = [aws_security_group.alb.id]
+  }
+
   ingress {
     description = "SSH"
     from_port   = 22
@@ -74,21 +107,20 @@ resource "aws_s3_bucket" "example" {
   bucket = "yash-singhal-terraform"
 }
 
-
 resource "aws_instance" "webserver1" {
-  ami                    = "ami-020cba7c55df1f615"
-  instance_type          = "t2.micro"
-  vpc_security_group_ids = [aws_security_group.webSg.id]
+  ami                    = data.aws_ssm_parameter.al2_ami.value
+  instance_type          = var.instance_type
+  vpc_security_group_ids = [aws_security_group.web.id]
   subnet_id              = aws_subnet.sub1.id
-  user_data              = base64encode(file("userdata.sh"))
+  user_data              = filebase64("userdata.sh")
 }
 
 resource "aws_instance" "webserver2" {
-  ami                    = "ami-020cba7c55df1f615"
-  instance_type          = "t2.micro"
-  vpc_security_group_ids = [aws_security_group.webSg.id]
+  ami                    = data.aws_ssm_parameter.al2_ami.value
+  instance_type          = var.instance_type
+  vpc_security_group_ids = [aws_security_group.web.id]
   subnet_id              = aws_subnet.sub2.id
-  user_data              = base64encode(file("userdata1.sh"))
+  user_data              = filebase64("userdata1.sh")
 }
 
 #create alb
@@ -97,7 +129,7 @@ resource "aws_lb" "myalb" {
   internal           = false
   load_balancer_type = "application"
 
-  security_groups = [aws_security_group.webSg.id]
+  security_groups = [aws_security_group.alb.id]
   subnets         = [aws_subnet.sub1.id, aws_subnet.sub2.id]
 
   tags = {
@@ -112,8 +144,12 @@ resource "aws_lb_target_group" "tg" {
   vpc_id   = aws_vpc.myvpc.id
 
   health_check {
-    path = "/"
-    port = "traffic-port"
+    path                = "/"
+    port                = "traffic-port"
+    healthy_threshold   = 3
+    unhealthy_threshold = 3
+    interval            = 15
+    timeout             = 5
   }
 }
 

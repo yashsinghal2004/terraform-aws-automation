@@ -1,3 +1,9 @@
 terraform.tfstate
 terraform.tfstate.backup
 .terraform/
+crash.log
+*.tfvars
+*.auto.tfvars
+*.tfplan
+override.tf
+override.tf.json
