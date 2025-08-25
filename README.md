@@ -98,7 +98,7 @@ terraform destroy
 The project provides the following output:
 - `loadbalancerdns`: The DNS name of the Application Load Balancer
 
-![Terraform apply output](images/apply-output.png)
+![Terraform apply output](./images/apply-output.png)
 
 ## 🔒 Security Considerations
 
