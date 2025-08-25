@@ -2,15 +2,15 @@
 
 A comprehensive Terraform infrastructure as code project that automates the deployment of a highly available web application on AWS with load balancing, auto-scaling capabilities, and multi-AZ deployment.
 
-## 🏗️ Architecture Overview
+## 🏗️ Architecture Overview (With Best Practices)
 
 This project creates a complete AWS infrastructure including:
 
 - **VPC** with custom CIDR block (10.0.0.0/16)
-- **Multi-AZ Subnets** in us-east-1a and us-east-1b
+- **Multi-AZ Subnets** discovered dynamically (no AZ letters hardcoded)
 - **Internet Gateway** for public internet access
 - **Route Tables** configured for public subnets
-- **Security Groups** with HTTP (80) and SSH (22) access
+- **Security Groups** split for ALB and EC2; HTTP from internet to ALB, HTTP from ALB to EC2; SSH configurable
 - **S3 Bucket** for static content storage
 - **EC2 Instances** running Apache web servers
 - **Application Load Balancer** with health checks
@@ -41,25 +41,26 @@ terraform-aws-automation/
 
 ## 🛠️ Prerequisites
 
-- [Terraform](https://www.terraform.io/downloads.html) >= 1.0
+- [Terraform](https://www.terraform.io/downloads.html) >= 1.5
 - [AWS CLI](https://aws.amazon.com/cli/) configured with appropriate credentials
 - AWS account with permissions to create VPC, EC2, ALB, and S3 resources
 
 ## 🔧 Configuration
 
 ### AWS Provider
-- **Region**: us-east-1
-- **Provider Version**: 5.11.0
+- **Region**: configurable via variable (`var.region`)
+- **Provider Version**: ~> 5.11
+- **Default Tags**: applied via provider to all resources (Project, Environment, Owner)
 
 ### Network Configuration
 - **VPC CIDR**: 10.0.0.0/16
-- **Subnet 1**: 10.0.0.0/24 (us-east-1a)
-- **Subnet 2**: 10.0.1.0/24 (us-east-1b)
+- **Subnet 1**: 10.0.0.0/24 (AZ index 0)
+- **Subnet 2**: 10.0.1.0/24 (AZ index 1)
 
 ### Instance Configuration
-- **AMI**: (Amazon Linux 2)
-- **Instance Type**: t2.micro
-- **Security Group**: Allows HTTP (80) and SSH (22) access
+- **AMI**: Amazon Linux 2023 (retrieved dynamically via SSM parameter)
+- **Instance Type**: configurable via variable (`var.instance_type`), default t2.micro
+- **Security Groups**: Allows HTTP (80) and SSH (22) access
 
 ## 📋 Usage
 
@@ -107,8 +108,8 @@ The project provides the following output:
 ## 🚨 Important Notes
 
 - **Cost**: Running t2.micro instances and ALB will incur AWS charges
-- **Region**: Currently configured for us-east-1 region
-- **AMI**: Uses a specific AMI ID - ensure it exists in your target region
+- **Region**: Configurable via `var.region`
+- **AMI**: Retrieved dynamically via SSM (no hardcoded AMI IDs)
 - **S3 Bucket**: Creates a bucket named "yash-singhal-terraform" - customize as needed
 
 ## Customization
@@ -122,20 +123,19 @@ variable "cidr" {
 ```
 
 ### Change Region
-Update `provider.tf`:
-```hcl
-provider "aws" {
-  region = "us-west-2"  # Your preferred region
-}
+Set in `variables.tf` or via CLI/environment:
+```bash
+# via CLI
+terraform apply -var="region=us-west-2"
+
+# or in a tfvars file
+region = "us-west-2"
 ```
 
 ### Modify Instance Type
-Update `main.tf`:
-```hcl
-resource "aws_instance" "webserver1" {
-  instance_type = "t3.small"  # Your preferred instance type
-  # ... other configuration
-}
+Set via variable:
+```bash
+terraform apply -var="instance_type=t3.small"
 ```
 
 ## 🆘 Troubleshooting
